@@ -131,8 +131,8 @@ def do_lev_sims(pair_list, cutoff_score=0.6, min_src_len=6, max_attempts=10000, 
     res = defaultdict(list)
 
     for i, (src, tgt, srclen) in enumerate(pair_list):
-        if not i % 1000:
-            print(f"{datetime.now()}: {i}")
+        if not i % 100:
+            print(f"{datetime.now()}: {i}", file=sys.stderr)
 
         if srclen >= min_src_len:
             match_idx_list = list(range(i + 1, len(pair_list)))
