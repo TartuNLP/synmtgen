@@ -38,7 +38,7 @@ def doit(fh, output_pref, min_com):
         line_count += parse(l, ofh, min_com)
 
         if not line_count % 10000:
-            print(f"Currently at line {line_count}", file=sys.stderr)
+            print(f"Currently at line nr {line_count}", file=sys.stderr)
 
         if line_count >= 1000000 and file_idx is not None:
             ofh.close()
