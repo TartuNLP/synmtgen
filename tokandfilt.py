@@ -52,7 +52,7 @@ def parse_into_shards(fh, min_com, shard_size):
 
 def dump_shard_to_file(shard, fh):
     for l in shard:
-        fh.write(l)
+        print(l, file=fh)
 
 
 def doit(output_file_preffix, shard_size, min_comet):
