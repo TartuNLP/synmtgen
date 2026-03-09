@@ -32,8 +32,6 @@ def get_ofh(output_pref, file_idx):
 
 
 def parse_into_shards(fh, min_com, shard_size):
-    line_count = 0
-
     shard = list()
 
     for l in fh:
@@ -57,12 +55,13 @@ def dump_shard_to_file(shard, fh):
 
 def doit(output_file_preffix, shard_size, min_comet):
     output_file_idx = 0
-    ofh = get_ofh(output_file_preffix, output_file_idx)
+    ofh = None
 
     for shard in parse_into_shards(sys.stdin, min_comet, shard_size):
-        if len(shard) > shard_size / 2:
+        if len(shard) > shard_size / 2 or ofh is None:
             output_file_idx += 1
-            ofh.close()
+            if ofh is not None:
+                ofh.close()
             ofh = get_ofh(output_file_preffix, output_file_idx)
 
         dump_shard_to_file(shard, ofh)
