@@ -5,63 +5,82 @@ import json
 import sys
 
 MIN_COMET_DEFAULT = 0.85
+SHARD_SIZE_DEFAULT = 1<<20
+
 
 def tok(st):
     return re.sub(r'([.,!?;:"\'])', r" ▁\1", st)
 
 
-def parse(line, ofh, min_com):
+def parse(line, min_com):
     data = json.loads(line.strip())
 
     if data['COMET'] < min_com:
-        return 0
+        return None
 
     sr = tok(data['src_segm'])
     tg = tok(data['tgt_segm'])
-    print(f"{sr} ||| {tg}", file=ofh)
-    return 1
+
+    return f"{sr} ||| {tg}"
 
 
-def get_of(output_pref, file_idx):
+def get_ofh(output_pref, file_idx):
     output_file = f"{output_pref}.{file_idx:03}.ali"
     ofh = open(output_file, 'w')
-    print(f"Writing to {output_file} now", file=sys.stderr)
+    print(f"Writing to {output_file}", file=sys.stderr)
     return ofh
 
 
-def doit(fh, output_pref, min_com):
-    if output_pref is None:
-        ofh = sys.stdout
-        file_idx = None
-    else:
-        file_idx = 0
-        ofh = get_of(output_pref, file_idx)
+def parse_into_shards(fh, min_com, shard_size):
     line_count = 0
 
+    shard = list()
+
     for l in fh:
-        line_count += parse(l, ofh, min_com)
+        line = parse(l, min_com)
 
-        if not line_count % 10000:
-            print(f"Currently at line nr {line_count}", file=sys.stderr)
+        if line is not None:
+            shard.append(line)
 
-        if not line_count % 1000000 and file_idx is not None:
+        if len(shard) >= shard_size:
+            yield shard
+            shard = list()
+
+    if len(shard) > 0:
+        yield shard
+
+
+def dump_shard_to_file(shard, fh):
+    for l in shard:
+        fh.write(l)
+
+
+def doit(output_file_preffix, shard_size, min_comet):
+    output_file_idx = 0
+    ofh = get_ofh(output_file_preffix, output_file_idx)
+
+    for shard in parse_into_shards(sys.stdin, min_comet, shard_size):
+        if len(shard) > shard_size / 2:
+            output_file_idx += 1
             ofh.close()
-            file_idx += 1
-            ofh = get_of(output_pref, file_idx)
+            ofh = get_ofh(output_file_preffix, output_file_idx)
 
-    if file_idx is not None:
-        ofh.close()
+        dump_shard_to_file(shard, ofh)
+    ofh.close()
 
 
 if __name__ == "__main__":
+    output_file_preffix = sys.argv[1]
+
     try:
-        min_comet = float(sys.argv[1])
+        shard_size = int(sys.argv[2])
+    except:
+        shard_size = SHARD_SIZE_DEFAULT
+
+    try:
+        min_comet = float(sys.argv[3])
     except:
         min_comet = MIN_COMET_DEFAULT
 
-    try:
-        output_file_preffix = sys.argv[2]
-    except:
-        output_file_preffix = None
+    doit(output_file_preffix, shard_size, min_comet)
 
-    doit(sys.stdin, output_file_preffix, min_comet)
