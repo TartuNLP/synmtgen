@@ -10,23 +10,7 @@ from collections import defaultdict
 from rapidfuzz.distance import Levenshtein
 from datetime import datetime
 
-
-def detok(toks, until_inclusive=-1):
-    if until_inclusive == -1:
-        sub_toks = toks
-    else:
-        sub_toks = toks[:until_inclusive] + [toks[until_inclusive]]
-
-    return " ".join(sub_toks).replace(" ▁", "")
-
-
-def parse_ali_txt_line(line):
-    src, tgt = line.strip().split(' ||| ')
-
-    src_tok = src.split(' ')
-    tgt_tok = tgt.split(' ')
-
-    return src, tgt, src_tok, tgt_tok
+from showali import parse_ali_txt_line
 
 
 def parse_ali_txt_file(txtfile):
