@@ -122,17 +122,18 @@ def do_lev_sims_snt(pair_list, i, src, tgt, lev_func, match_idx_list, max_per_sn
 
                             yield_len += 1
 
-                            yield (j, score, s2)
+                            print(f"Match! {i}, {j}", file=sys.stderr)
+                            yield j, score, s2
 
 
 def do_lev_sims(pair_list, cutoff_score=0.6, min_src_len=6, max_attempts=10000, max_per_snt=5):
     lev = CacheLev(cutoff=cutoff_score)
 
-    res = defaultdict(list)
-
     for i, (src, tgt, srclen) in enumerate(pair_list):
         if not i % 100:
             print(f"{datetime.now()}: {i}", file=sys.stderr)
+
+        res = list()
 
         if srclen >= min_src_len:
             match_idx_list = list(range(i + 1, len(pair_list)))
@@ -142,9 +143,12 @@ def do_lev_sims(pair_list, cutoff_score=0.6, min_src_len=6, max_attempts=10000, 
             for match_idx, src_score, tgt_score in do_lev_sims_snt(pair_list, i, src, tgt,
                                                                    lev, match_idx_list,
                                                                    max_per_snt, cutoff_score):
-                res[i].append((match_idx, src_score, tgt_score))
+                res.append((match_idx, src_score, tgt_score))
 
-    return res
+        if len(res) > 0:
+            yield i, res
+
+
 
 
 def doit(txtfile):
@@ -156,17 +160,15 @@ def doit(txtfile):
     t1 = datetime.now()
 
     # this
-    sims = do_lev_sims(list_of_pairs)
+    for i, matches in do_lev_sims(list_of_pairs):
+        data = (i, matches)
+        print(json.dumps(data))
 
     t2 = datetime.now()
 
     print(f"It took {str(t2 - t1)} to process the file", file=sys.stderr)
 
-    for i in sims:
-        data = (i, sims[i])
-        print(json.dumps(data))
-
 
 if __name__ == '__main__':
-    #doit(sys.argv[1])
-    doit("ali/et-ru.tmp")
+    doit(sys.argv[1])
+    #doit("ali/et-ru.tmp")
