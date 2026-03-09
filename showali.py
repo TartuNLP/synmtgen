@@ -2,6 +2,7 @@
 
 import sys
 
+
 def parse_ali_txt_line(line):
 	src, tgt = line.strip().split(' ||| ')
 

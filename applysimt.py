@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 
 import sys
-from collections import defaultdict
 
+from collections import defaultdict
 from showali import parse_ali_txt_line
 
 

@@ -6,7 +6,6 @@ import sys
 
 MIN_COMET_DEFAULT = 0.85
 
-
 def tok(st):
     return re.sub(r'([.,!?;:"\'])', r" ▁\1", st)
 
