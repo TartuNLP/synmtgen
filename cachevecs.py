@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import sys
 import json
 import re
@@ -8,8 +10,23 @@ from collections import defaultdict
 from rapidfuzz.distance import Levenshtein
 from datetime import datetime
 
-from applysimt import detok
-from showali import parse_ali_txt_line
+
+def detok(toks, until_inclusive=-1):
+    if until_inclusive == -1:
+        sub_toks = toks
+    else:
+        sub_toks = toks[:until_inclusive] + [toks[until_inclusive]]
+
+    return " ".join(sub_toks).replace(" ▁", "")
+
+
+def parse_ali_txt_line(line):
+    src, tgt = line.strip().split(' ||| ')
+
+    src_tok = src.split(' ')
+    tgt_tok = tgt.split(' ')
+
+    return src, tgt, src_tok, tgt_tok
 
 
 def parse_ali_txt_file(txtfile):
@@ -31,6 +48,7 @@ def parse_ali_txt_file(txtfile):
 
 def simp(str):
     return str
+
     #res1 = re.sub(r'[^a-zäöüšžõа-я ]', '', str.lower())
     #res2 = re.sub(r' {2,}', ' ', res1)
     #res3 = re.sub(r'(^ | $)', '', res2)
@@ -38,6 +56,11 @@ def simp(str):
 
 
 class CacheLev:
+    """
+    This class implements computing the Levenshtein distance between two strings,
+    but with caching of the results, to avoid re-computing it.
+    """
+
     def __init__(self, cutoff=0.0):
         self.cache = defaultdict(lambda: defaultdict(float))
         self.cutoff = cutoff
@@ -54,10 +77,16 @@ class CacheLev:
         return result
 
 
-def do_lev_sims_snt(pair_list, i, src, tgt, lev, match_idx_list, max_per_snt, cutoff_score):
+def do_lev_sims_snt(pair_list, i, src, tgt, lev_func, match_idx_list, max_per_snt, cutoff_score):
+    """
+    Find pairs of sentences, similar to pair_list[i],
+    by looking through the list of indexes in match_idx_list,
+    yielding a maximum of max_per_snt matches.
+    """
     nr_of_attempts = 0
     yield_len = 0
 
+    #to avoid duplicate matches, store the already found matches
     matches = set()
 
     while nr_of_attempts < len(match_idx_list) and yield_len < max_per_snt:
@@ -66,68 +95,78 @@ def do_lev_sims_snt(pair_list, i, src, tgt, lev, match_idx_list, max_per_snt, cu
 
         srcx, tgtx, _ = pair_list[j]
 
+        # has to be a different sentence
         if src != srcx and tgt != tgtx:
             sSrc = simp(src)
             sSrcx = simp(srcx)
 
+            # source has to be different from already found matches
             if str(sSrcx) not in matches and sSrc != sSrcx:
                 sTgt = simp(tgt)
                 sTgtx = simp(tgtx)
 
+                # target has to be different from already found matches
                 if str(sTgtx) not in matches and sTgt != sTgtx:
-                    score = lev.dist(src, srcx)
+                    score = lev_func.dist(src, srcx)
 
+                    # cutoff_score speeds up Levenshtein computation --
+                    # if it turns out that score will be lower that cutoff,
+                    # the Levenshtein computation stops
                     if score >= cutoff_score:
-                        s2 = lev.dist(tgt, tgtx)
+                        s2 = lev_func.dist(tgt, tgtx)
 
+                        # same cutoff optimization for target
                         if s2 >= cutoff_score:
                             matches.add(str(sTgtx))
                             matches.add(str(sSrcx))
 
                             yield_len += 1
-                            # print(f"{datetime.now()} DEBUG {i}-{j}: {src} / {srcx} --> {score} ({tgt} / {tgtx} / {s2})")
-                            print({'i1': i, 'i2': j, 'src1': src, 'tgt1': tgt, 'src2': srcx, 'tgt2': tgtx,
-                                   'src_score': score, 'tgt_score': s2})
+
+                            yield (j, score, s2)
 
 
 def do_lev_sims(pair_list, cutoff_score=0.6, min_src_len=6, max_attempts=10000, max_per_snt=5):
     lev = CacheLev(cutoff=cutoff_score)
+
+    res = defaultdict(list)
 
     for i, (src, tgt, srclen) in enumerate(pair_list):
         if not i % 1000:
             print(f"{datetime.now()}: {i}")
 
         if srclen >= min_src_len:
-
             match_idx_list = list(range(i + 1, len(pair_list)))
             random.shuffle(match_idx_list)
             match_idx_list = match_idx_list[:max_attempts]
 
-            do_lev_sims_snt(pair_list, i, src, tgt, lev, match_idx_list, max_per_snt, cutoff_score)
+            for match_idx, src_score, tgt_score in do_lev_sims_snt(pair_list, i, src, tgt,
+                                                                   lev, match_idx_list,
+                                                                   max_per_snt, cutoff_score):
+                res[i].append((match_idx, src_score, tgt_score))
+
+    return res
+
 
 def doit(txtfile):
+    # this returns a list of tuples like (source_tokens, target_tokens, length_of_src_toks)
     list_of_pairs = parse_ali_txt_file(txtfile)
+
+    print(f"Parsing done, processing (takes time)", file=sys.stderr)
 
     t1 = datetime.now()
 
+    # this
     sims = do_lev_sims(list_of_pairs)
 
     t2 = datetime.now()
 
-    print(t2 - t1)
+    print(f"It took {str(t2 - t1)} to process the file", file=sys.stderr)
 
-    che = defaultdict(int)
     for i in sims:
-        che[len(sims[i])] += 1
-
-    print(che)
+        data = (i, sims[i])
+        print(json.dumps(data))
 
 
 if __name__ == '__main__':
     #doit(sys.argv[1])
-
     doit("ali/et-ru.tmp")
-
-    #s = "- «On kõik korras? »"
-    #o = simp(s)
-    #print(f"'{s}' --> '{o}'")
