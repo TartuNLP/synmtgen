@@ -161,7 +161,7 @@ def doit(txtfile):
 
     # this
     for i, matches in do_lev_sims(list_of_pairs):
-        data = (i, matches)
+        data = { 'idx': i, 'matches': matches }
         print(json.dumps(data))
 
     t2 = datetime.now()
