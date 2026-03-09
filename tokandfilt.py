@@ -22,8 +22,12 @@ def parse(line, ofh, min_com):
     return 1
 
 
-def output_filename(output_pref, file_idx):
-    return f"{output_pref}.{file_idx:03}.ali"
+def get_of(output_pref, file_idx):
+    output_file = f"{output_pref}.{file_idx:03}.ali"
+    ofh = open(output_file, 'w')
+    print(f"Writing to {output_file} now", file=sys.stderr)
+    return ofh
+
 
 def doit(fh, output_pref, min_com):
     if output_pref is None:
@@ -31,7 +35,7 @@ def doit(fh, output_pref, min_com):
         file_idx = None
     else:
         file_idx = 0
-        ofh = open(output_filename(output_pref, file_idx), 'w')
+        ofh = get_of(output_pref, file_idx)
     line_count = 0
 
     for l in fh:
@@ -43,7 +47,7 @@ def doit(fh, output_pref, min_com):
         if not line_count % 1000000 and file_idx is not None:
             ofh.close()
             file_idx += 1
-            ofh = open(output_filename(output_pref, file_idx), 'w')
+            ofh = get_of(output_pref, file_idx)
 
     if file_idx is not None:
         ofh.close()
